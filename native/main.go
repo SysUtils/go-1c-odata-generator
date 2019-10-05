@@ -21,20 +21,33 @@ func NewGenerator(schema shared.Schema, typeMap map[string]string, nameMap map[s
 	return &gen, err
 }
 
-func (g *Generator) Generate() {
+func (g *Generator) Generate() error {
 	f, _ := os.Create("odata/entity.go")
-	writePackageHeader(f, nil)
+	err := writePackageHeader(f, []string{"github.com/SysUtils/go-1c-odata/types", "github.com/SysUtils/go-1c-odata/client"})
+	if err != nil {
+		return err
+	}
 	for _, v := range g.schema.Entities {
-		g.writeEntity(f, v)
+		err = g.writeEntity(f, v)
+		if err != nil {
+			return err
+		}
 	}
 
 	f.Close()
 
 	f, _ = os.Create("odata/complex.go")
-	writePackageHeader(f, nil)
+	err = writePackageHeader(f, []string{"github.com/SysUtils/go-1c-odata/types"})
+	if err != nil {
+		return err
+	}
 	for _, v := range g.schema.Complexes {
-		g.writeComplexStruct(f, v)
+		err = g.writeComplexStruct(f, v)
+		if err != nil {
+			return err
+		}
 	}
 
 	f.Close()
+	return nil
 }

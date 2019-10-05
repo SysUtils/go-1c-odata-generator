@@ -3,6 +3,7 @@ package native
 import (
 	"github.com/SysUtils/go-1c-odata-generator/shared"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 type Schema struct {
@@ -22,11 +23,20 @@ type Property struct {
 	OriginalType string
 }
 
+type Action struct {
+	Name         string
+	OriginalName string
+	Type         string
+	OriginalType string
+	Parameters   []Property
+}
+
 type ComplexType struct {
 	TypeName         string
 	OriginalTypeName string
 	Properties       []Property
 	Navigations      []Navigation
+	Actions          []Action
 }
 
 type Navigation struct {
@@ -50,7 +60,7 @@ func (g *Generator) extractAssociations(source []shared.Association) map[string]
 	return associationMap
 }
 
-func (g *Generator) getComplexType(src shared.OneCType, associations map[string]map[string]string) (*ComplexType, error) {
+func (g *Generator) getComplexType(src shared.OneCType, functions []shared.Function, associations map[string]map[string]string) (*ComplexType, error) {
 	converted := ComplexType{}
 	converted.TypeName = g.translateType(src.Name)
 	converted.OriginalTypeName = src.Name
@@ -71,7 +81,7 @@ func (g *Generator) getComplexType(src shared.OneCType, associations map[string]
 	}
 
 	for _, nav := range src.Navigations {
-		navprop := Property{
+		navprop := Navigation{
 			Name:         g.translateName(nav.Name),
 			OriginalName: nav.Name,
 		}
@@ -79,11 +89,37 @@ func (g *Generator) getComplexType(src shared.OneCType, associations map[string]
 			if to, ok := relation[nav.ToRole]; ok {
 				navprop.OriginalType = to
 				navprop.Type = g.translateType(to)
+				converted.Navigations = append(converted.Navigations, navprop)
 				continue
 			}
 		}
 		return nil, errors.Errorf(relationshipNotFound, nav.Relationship, nav.ToRole)
 	}
+
+	for _, f := range functions {
+		if f.IsBindable {
+			if strings.TrimPrefix(f.Parameters[0].Type, "StandardODATA.") == src.Name {
+				var props []Property
+				for i := 1; i < len(f.Parameters); i++ {
+					props = append(props, Property{
+						Name:         g.translateName(f.Parameters[i].Name),
+						OriginalName: f.Parameters[i].Name,
+						Type:         g.translateType(f.Parameters[i].Type),
+						OriginalType: f.Parameters[i].Type,
+					})
+				}
+
+				converted.Actions = append(converted.Actions, Action{
+					Name:         f.Name,
+					OriginalName: f.Name,
+					Type:         g.translateType(f.Type),
+					OriginalType: f.Type,
+					Parameters:   props,
+				})
+			}
+		}
+	}
+
 	return &converted, nil
 }
 
@@ -97,7 +133,7 @@ func (g *Generator) convertSchema(src shared.Schema) (*Schema, error) {
 	associaions := g.extractAssociations(src.Association)
 
 	for _, entity := range src.Entities {
-		complexType, err := g.getComplexType(entity, associaions)
+		complexType, err := g.getComplexType(entity, src.Functions, associaions)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +157,7 @@ func (g *Generator) convertSchema(src shared.Schema) (*Schema, error) {
 		convertedSchema.Entities = append(convertedSchema.Entities, convertedEntity)
 	}
 	for _, entity := range src.Complexes {
-		complexType, err := g.getComplexType(entity, associaions)
+		complexType, err := g.getComplexType(entity, src.Functions, associaions)
 		if err != nil {
 			return nil, err
 		}

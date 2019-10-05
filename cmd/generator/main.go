@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/SysUtils/go-1c-odata-generator/native"
-	"github.com/SysUtils/go-1c-odata-generator/schema_cleaner"
 	"github.com/SysUtils/go-1c-odata-generator/schema_loader"
 	"io/ioutil"
 	"log"
@@ -46,8 +45,11 @@ func main() {
 		log.Panic(err)
 	}
 
-	schema = schema_cleaner.Clean(schema, typeMap)
+	//	schema = schema_cleaner.Clean(schema, typeMap)
 
 	gen, _ := native.NewGenerator(*schema, typeMap, nameMap)
-	gen.Generate()
+	err = gen.Generate()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

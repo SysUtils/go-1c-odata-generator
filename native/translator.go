@@ -7,6 +7,9 @@ import (
 )
 
 func ToCamelCase(src string) string {
+	if len(src) == 0 {
+		return ""
+	}
 	result := []rune(src)
 	result[0] = unicode.ToUpper(result[0])
 	return string(result)
@@ -21,6 +24,8 @@ func ToLowerCamelCase(src string) string {
 func (g *Generator) translateType(src string) string {
 	if strings.HasPrefix(src, "Edm.") {
 		src = src[4:]
+		src = "types." + src
+		return src
 	}
 
 	if strings.HasPrefix(src, "StandardODATA.") {
